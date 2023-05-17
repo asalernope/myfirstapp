@@ -1,0 +1,89 @@
+---
+title: "App.Rmarkdown"
+author: "Audrey Salerno"
+date: "5/14/2023"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(purrr)
+library(tidyverse)
+library(shiny)
+```
+
+
+```{r}
+df_list <- map(set_names(excel_sheets("NationalTotalAndSubcategory.xlsx")), # map returns a list containing each sheet of the excel 
+               read_excel, path = "NationalTotalAndSubcategory.xlsx")
+
+list2env(df_list, envir = .GlobalEnv) # convert from list to environment
+
+var_names<- setNames(`National by Subcategory`$Category, `National by Subcategory`$Subcategory)
+
+NatbySub<-`National by Subcategory`
+```
+
+```{r}
+NatbySub$Date<-as.Date(NatbySub$Date)
+
+NatbySub$month <- floor_date(NatbySub$Date, "month")
+```
+
+```{r}
+cat<-NatbySub %>%
+  group_by(month, Category) %>%
+  summarise(mdollars = mean(Dollars),
+            munits = mean(`Unit sales`),
+            mvol = mean(`Volume sales`)) %>%
+  pivot_longer(cols = c("mdollars", "munits", "mvol"), names_to = "variable", values_to = "amt")
+
+try<-cat %>% 
+      filter(variable == "mdollars") %>%
+      group_by(month) %>%
+  left_join(amt, by = c("month", "Category")) %>%
+      mutate(Pctd = amt/sum(amt))
+
+cat<-NatbySub %>%
+  filter(Category != 'All foods') %>%
+  select(c("Date", "Category", "Subcategory", "Dollars", 'Unit sales', 'Volume sales')) %>%
+  pivot_longer(cols = c("Dollars", 'Unit sales', 'Volume sales'), names_to = "variable", values_to = "amt")
+
+subcat<-NatbySub %>%
+  filter(Category != 'All foods') %>%
+  select(c("month", "Date", "Category", "Subcategory", "Dollars", 'Unit sales', 'Volume sales')) %>%
+  pivot_longer(cols = c("Dollars", 'Unit sales', 'Volume sales'), names_to = "variable", values_to = "amt")
+
+
+
+cat %>%
+  filter(Category != "All foods") %>%
+ggplot()+
+  geom_col(aes(x= month, y=mdollars, fill= Category)) +
+    theme_bw()
+```
+
+```{r}
+cat%>%
+  group_by(month) %>% 
+  mutate(Pctd = mdollars / sum(mdollars),
+         Pctu = munits / sum(munits)) %>%
+ggplot()+
+  geom_col(aes(x= month, y= Pctu, fill= Category)) +
+    theme_bw()
+```
+
+
+
+
+```{r}
+NatbySub %>%
+  group_by(month, Category, Subcategory) %>%
+  summarise(mdollars = mean(Dollars),
+            munits = mean(`Unit sales`),
+            mvol = mean(`Volume sales`)) %>%
+  filter(Category == "Vegetables") %>%
+ggplot()+
+  geom_col(aes(x= month, y=mdollars, fill= Subcategory)) +
+  theme_bw()
+```
