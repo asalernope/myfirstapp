@@ -7,6 +7,7 @@ library(shiny)
 library(rsconnect)
 library(shinythemes)
 library(vroom)
+library(shinyWidgets)
 
 # Data read in 
 
@@ -21,14 +22,20 @@ NatbySub<-`National by Subcategory` # rename df
 NatbySub$Date<-as.Date(NatbySub$Date) # adjust variable to date
 NatbySub$month <- floor_date(NatbySub$Date, "month") # monthly identifier
 
+choices_month <- format(seq.Date(from = as.Date("2019-10-01"), by = "month", length.out = 39), "%Y-%m-%d")
+tail(choices_month)
+
+
+
 ## Sum the variables by the categories
 cat<-NatbySub %>%
   filter(Category != "All foods") %>%
   group_by(month, Category) %>%
   summarise(Dollars = sum(Dollars),
             `Unit sales` = sum(`Unit sales`),
-            `Volume sales` = sum(`Volume sales`)) %>%
-  pivot_longer(cols = c("Dollars", 'Unit sales', 'Volume sales'), names_to = "variable", values_to = "amt")
+            `Volume sales` = sum(`Volume sales`),
+            `Dollars/EQ` = (Dollars/`Volume sales`)) %>%
+  pivot_longer(cols = c("Dollars", 'Unit sales', 'Volume sales', 'Dollars/EQ'), names_to = "variable", values_to = "amt")
 
 ## Sum the variables by the subcategories
 
@@ -38,28 +45,36 @@ subcat<-NatbySub %>%
   group_by(month, Category, Subcategory) %>%
   summarise(Dollars = sum(Dollars),
             `Unit sales` = sum(`Unit sales`),
-            `Volume sales` = sum(`Volume sales`)) %>%
-  pivot_longer(cols = c("Dollars", 'Unit sales', 'Volume sales'), names_to = "variable", values_to = "amt")
+            `Volume sales` = sum(`Volume sales`),
+            `Dollars/EQ` = (Dollars/`Volume sales`)) %>%
+  pivot_longer(cols = c("Dollars", 'Unit sales', 'Volume sales', 'Dollars/EQ'), names_to = "variable", values_to = "amt")
 
 
 # UI 
 ui <- fluidPage(
   # Application title
-  titlePanel("Food data 2019-2022"),
+  titlePanel("I am hungry"),
   fluidRow(
-    column(12, "Category and variable information" ) # add in background
-    ),
+    column(12, 
+        "Dollars: Total value of sales;
+          Unit sales: Total units sold, any size;
+          Volume sales: Total volume sold in equivalent units;
+          Average dollars/equivalent unit: Dollars/Volume sales. I.e. Dollars per                single equivalent unit")),
   
   ## all categories 
   
   sidebarLayout( 
     sidebarPanel(
- #    sliderInput(inputID = "date1", label =  ## eventually add slider for data range of the plots... 
-   #   "Dates:",
-   #   min = as.Date("2019-10-06","%Y-%m-%d"),
-    #  max = as.Date("2022-12-18","%Y-%m-%d"),
-   #   value=as.Date(c("2019-10-06","2022-12-18")),
-   #   timeFormat="%Y-%m-%d"),
+      sliderTextInput(
+        inputId = "test", label = "Month", width = "100%",
+        choices = choices_month, 
+        selected = choices_month[c(1, 36)]),
+      selectInput(
+        inputId = "catpic",
+        label = "Categories",
+        choices = unique(cat$Category),
+        selected = "Alcohol",
+        multiple = TRUE),
      selectInput(inputId = "select1", label = "select data", 
                   choices = unique(cat$variable)), 
       selectInput("y1", "Y axis", c("Total", "Proportion")) 
@@ -78,12 +93,6 @@ ui <- fluidPage(
  ),
  sidebarLayout( 
    sidebarPanel( 
-     #    sliderInput(inputID = "date1", label = 
-     #   "Dates:",
-     #   min = as.Date("2019-10-06","%Y-%m-%d"),
-     #  max = as.Date("2022-12-18","%Y-%m-%d"),
-     #   value=as.Date(c("2019-10-06","2022-12-18")),
-     #   timeFormat="%Y-%m-%d"),
      selectInput(inputId = "selectcat", label = "select category", 
                  choices = unique(cat$Category)),
      selectInput(inputId = "subvar", label = "variable select", choices = unique(subcat$variable)), 
@@ -103,9 +112,15 @@ server <- function(input, output, session) {
   
 ## create reactive to update data with the selections made in the ui
   
-  selected <- reactive(cat %>% filter(variable == input$select1))
-  selectedsub <- reactive(subcat %>% filter(Category == input$selectcat & variable == input$subvar))
+    ## input$numeric_var is a character vector, so we cast it to a list of symbols
+  # var_list <- observeEvent(input$catpic)
   
+  
+  
+  selected <- reactive(cat  %>% filter(variable == input$select1) %>% filter( Category %in% input$catpic) %>% filter(month >= as.Date(input$test[1]) & month <= as.Date(input$test[2])))
+  selectedsub <- reactive(subcat %>% filter(Category == input$selectcat & variable == input$subvar)
+                          %>% filter(month >= as.Date(input$test[1]) & month <= as.Date(input$test[2])))
+
   
 # Categories
   
@@ -121,13 +136,13 @@ server <- function(input, output, session) {
     
     if (input$y1 == "Total") {
       data_set() %>%
-        ggplot(aes(month, amt, fill = Category)) +
+        ggplot(aes( month , amt, fill = Category)) +
         geom_col() +
     
         theme_bw()
     } else {
       data_set() %>%
-        ggplot(aes(month, Pctd, fill = Category)) +
+        ggplot(aes(month , Pctd, fill = Category)) +
         geom_col(na.rm = TRUE) +
         theme_bw()
     }
@@ -175,9 +190,6 @@ output$subslopeplot <- renderPlot({
     theme_bw()
 }, res=96)
 }
-
-
-
 
 # Run the application 
 shinyApp(ui = ui, server = server)
