@@ -8,6 +8,9 @@ library(rsconnect)
 library(shinythemes)
 library(vroom)
 library(shinyWidgets)
+library(broom)
+library(plotly)
+library(shinythemes)
 
 # Data read in 
 
@@ -51,58 +54,68 @@ subcat<-NatbySub %>%
 
 
 # UI 
-ui <- fluidPage(
+ui <- fluidPage(theme = shinytheme("superhero"),
   # Application title
-  titlePanel("I am hungry"),
+  titlePanel("Sick & trendy food product purchasing in the US from 2019 until 2022"),
+  hr(),
   fluidRow(
-    column(12, 
-        "Dollars: Total value of sales;
-          Unit sales: Total units sold, any size;
-          Volume sales: Total volume sold in equivalent units;
-          Average dollars/equivalent unit: Dollars/Volume sales. I.e. Dollars per                single equivalent unit")),
+    h3("This app utilizes a dope dataset from the USDA regarding total dollars spent and units sold of consumer food products separated out into 11 main categories and further subdivided into subcategories. The data is a time series starting 10/01/2019 agglomerated from weekly into monthly data until 12/01/2022. The variables reported for each category are as follows:", align = "center")),
+  fluidRow(h4("   -Dollars: Total value of sales")),
+  fluidRow(h4("   -Unit sales: Total units sold, any size")),
+  fluidRow(h4("   -Volume sales: Total volume sold in equivalent units")),
+  fluidRow(h4("   -Average dollars/equivalent unit: Dollars/Volume sales. I.e. Dollars per                single equivalent unit")),
   
+  hr(),
+  fluidRow(h2("Selecting date range and variable to view")),
+  fluidRow(column(6, sliderTextInput(
+    inputId = "test", label = "Date Range", width = "100%",
+    choices = choices_month, 
+    selected = choices_month[c(1, 39)])),
+    column(3, selectInput(inputId = "select1", label = "Select variable to view", 
+                        choices = unique(cat$variable))),
+    column(3, selectInput("y1", "Select Between Total and Proportion", c("Total", "Proportion")) 
+  )),
+  
+  hr(),
   ## all categories 
-  
   sidebarLayout( 
     sidebarPanel(
-      sliderTextInput(
-        inputId = "test", label = "Month", width = "100%",
-        choices = choices_month, 
-        selected = choices_month[c(1, 36)]),
-      selectInput(
+      checkboxGroupInput(
         inputId = "catpic",
         label = "Categories",
         choices = unique(cat$Category),
-        selected = "Alcohol",
-        multiple = TRUE),
-     selectInput(inputId = "select1", label = "select data", 
-                  choices = unique(cat$variable)), 
-      selectInput("y1", "Y axis", c("Total", "Proportion")) 
-    ),
+        selected = "Alcohol"
+       # multiple = TRUE
+       )
+      ),
+    # selectInput(inputId = "select1", label = "select data", 
+            #      choices = unique(cat$variable)), 
+     # selectInput("y1", "Y axis", c("Total", "Proportion")) 
+   # ),
     mainPanel(
       tabsetPanel(
         tabPanel("Category",plotOutput("catplot")),
-        tabPanel("Slope", plotOutput("slopeplot")))
-    )
-  ),
- 
+        tabPanel("Slope", plotOutput("slopeplot")),
+        tabPanel ("Table", dataTableOutput("catinfo")))
+    )),
+  hr(),
  ## select a category to view subcategory information
- 
- fluidRow(
-   column(12, "select a category to view subcategory information")
- ),
+ fluidRow(h3("Take a closer look at what makes up an individual category by selecting one of the categories you selected above.")),
  sidebarLayout( 
    sidebarPanel( 
-     selectInput(inputId = "selectcat", label = "select category", 
-                 choices = unique(cat$Category)),
-     selectInput(inputId = "subvar", label = "variable select", choices = unique(subcat$variable)), 
-     selectInput("y2", "Y axis", c("Total", "Proportion")) 
-   ),
+     selectInput(inputId = "selectcat", label = "Select A Category", 
+                 choices = unique(cat$Category))),
+ #    selectInput(inputId = "subvar", label = "variable select", choices = unique(subcat$variable
+ #)), 
+   #  selectInput("y2", "Y axis", c("Total", "Proportion")) 
+  # ),
    mainPanel(
      tabsetPanel(
        tabPanel("Subcategory",plotOutput("subplot")),
-       tabPanel("SubSlope", plotOutput("subslopeplot")))
-   )))
+       tabPanel("SubSlope", plotOutput("subslopeplot")),
+       tabPanel ("Table", dataTableOutput("subinfo")))
+   ))
+)
 
 
 
@@ -110,16 +123,14 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  observeEvent(input$catpic, {
+    updateSelectInput(inputId = "selectcat", label = "Select a Category",  choices = c(input$catpic))
+  })  
+  
 ## create reactive to update data with the selections made in the ui
-  
-    ## input$numeric_var is a character vector, so we cast it to a list of symbols
-  # var_list <- observeEvent(input$catpic)
-  
-  
-  
+
   selected <- reactive(cat  %>% filter(variable == input$select1) %>% filter( Category %in% input$catpic) %>% filter(month >= as.Date(input$test[1]) & month <= as.Date(input$test[2])))
-  selectedsub <- reactive(subcat %>% filter(Category == input$selectcat & variable == input$subvar)
-                          %>% filter(month >= as.Date(input$test[1]) & month <= as.Date(input$test[2])))
+  selectedsub <- reactive(subcat %>% filter(Category == input$selectcat & variable == input$select1) %>% filter(month >= as.Date(input$test[1]) & month <= as.Date(input$test[2])))
 
   
 # Categories
@@ -135,11 +146,12 @@ server <- function(input, output, session) {
   output$catplot <- renderPlot({
     
     if (input$y1 == "Total") {
-      data_set() %>%
-        ggplot(aes( month , amt, fill = Category)) +
-        geom_col() +
-    
+     data_set() %>%
+        ggplot(aes( month , amt, color = Category)) +
+        geom_line() +
+        geom_point() +
         theme_bw()
+
     } else {
       data_set() %>%
         ggplot(aes(month , Pctd, fill = Category)) +
@@ -155,6 +167,18 @@ server <- function(input, output, session) {
       geom_smooth(method = "lm") +
       theme_bw()
   }, res=96)
+  
+  ## table
+  
+# lm<- reactive({
+   # selected() %>%
+    #  group_by(Category) %>%
+    # mutate(lmi = lm(amt ~ month)) })
+ 
+# coef_table <- as.data.frame(summary(lm)$coefficients)
+  
+ output$catinfo <- renderDataTable(selected(),options = list(pageLength = 15))
+
 
   # Selected Category and view subcategory
   ## set up proportion
@@ -167,11 +191,11 @@ sub_set <- reactive({
  ## plot it
 output$subplot <- renderPlot({
   
-  if (input$y2 == "Total") {
+  if (input$y1 == "Total") {
     sub_set() %>%
-      ggplot(aes(month, amt, fill = Subcategory)) +
-      geom_col() +
-      
+      ggplot(aes(month, amt, color = Subcategory)) +
+      geom_line() +
+      geom_point()+
       theme_bw()
   } else {
     sub_set() %>%
@@ -189,6 +213,10 @@ output$subslopeplot <- renderPlot({
     geom_smooth(method = "lm") +
     theme_bw()
 }, res=96)
+
+output$subinfo <- renderDataTable(sub_set(), options = list(pageLength = 15))
+
+
 }
 
 # Run the application 
