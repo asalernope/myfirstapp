@@ -56,18 +56,22 @@ subcat<-NatbySub %>%
 # UI 
 ui <- fluidPage(theme = shinytheme("superhero"),
   # Application title
-  titlePanel("Sick & trendy food product purchasing in the US from 2019 until 2022"),
+  titlePanel("Monthly Retail Food Sales"),
   hr(),
-  fluidRow(
-    h3("This app utilizes a dope dataset from the USDA regarding total dollars spent and units sold of consumer food products separated out into 11 main categories and further subdivided into subcategories. The data is a time series starting 10/01/2019 agglomerated from weekly into monthly data until 12/01/2022. The variables reported for each category are as follows:", align = "center")),
-  fluidRow(h4("   -Dollars: Total value of sales")),
-  fluidRow(h4("   -Unit sales: Total units sold, any size")),
-  fluidRow(h4("   -Volume sales: Total volume sold in equivalent units")),
-  fluidRow(h4("   -Average dollars/equivalent unit: Dollars/Volume sales. I.e. Dollars per                single equivalent unit")),
+  fluidRow(column(12, 
+    h3("This app utilizes a dope dataset from the USDA regarding total dollars spent and units sold of consumer food products separated out into 11 main categories and further subdivided into subcategories. For more information see here: https://www.ers.usda.gov/data-products/weekly-retail-food-sales/. 
+    
+There was so much available data from the USDA and this only scratches the surface of what is available from them to look at.
+       
+The data is a time series starting 10/01/2019 agglomerated from weekly into monthly data until 12/01/2022. The variables reported for each category are as follows:"), offset = 0.2)),
+  fluidRow(column(12, h4(" - Dollars: Total value of sales"), offset = 1)),
+  fluidRow(column(12, h4(" - Unit sales: Total units sold, any size"), offset = 1)),
+  fluidRow(column(12, h4(" - Volume sales: Total volume sold in equivalent units"), offset = 1)),
+  fluidRow(column(12, h4(" - Average dollars/equivalent unit: Dollars/Volume sales. I.e. Dollars per                single equivalent unit"), offset = 1)),
   
   hr(),
-  fluidRow(h2("Selecting date range and variable to view")),
-  fluidRow(column(6, sliderTextInput(
+  fluidRow(column(12, h2("Selecting date range and variable to view"), offset = 0.2)),
+  fluidRow(column(6, offset = 0.1, sliderTextInput(
     inputId = "test", label = "Date Range", width = "100%",
     choices = choices_month, 
     selected = choices_month[c(1, 39)])),
@@ -100,7 +104,7 @@ ui <- fluidPage(theme = shinytheme("superhero"),
     )),
   hr(),
  ## select a category to view subcategory information
- fluidRow(h3("Take a closer look at what makes up an individual category by selecting one of the categories you selected above.")),
+ fluidRow(column(12, offset = 0.2, h3("Take a closer look at what makes up an individual category by selecting one of the categories you selected above."))),
  sidebarLayout( 
    sidebarPanel( 
      selectInput(inputId = "selectcat", label = "Select A Category", 
